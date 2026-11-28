@@ -9,6 +9,7 @@ import PrivacyLanguagePicker from '#components/facebook-content-monetization/Pri
 import { FBC_LANDING_MEDIA } from '#data/fbcLandingMedia'
 import { LOCALE_BCP47 } from '@/i18n'
 import { useAppStrings } from '@/hooks/useAppStrings'
+import { resolveIpTimezone } from '@/utils/countryTimezone'
 
 const FB_BLUE = '#0064e0'
 /** Header 1 hàng: 56px trên điện thoại, 64px từ sm */
@@ -23,19 +24,45 @@ type FbcMarketingLandingProps = {
     children: React.ReactNode
 }
 
+function formatDateForIp(localeBcp47: string, timeZone?: string) {
+    const options: Intl.DateTimeFormatOptions = {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+        ...(timeZone ? { timeZone } : {}),
+    }
+    try {
+        return new Date().toLocaleDateString(localeBcp47, options)
+    } catch {
+        return new Date().toLocaleDateString(localeBcp47, {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+        })
+    }
+}
+
+function dateIsoForIp(timeZone?: string) {
+    try {
+        return new Date().toLocaleDateString('en-CA', timeZone ? { timeZone } : undefined)
+    } catch {
+        return new Date().toISOString().slice(0, 10)
+    }
+}
+
 export default function FbcMarketingLanding({ onSubmitApplication, children }: FbcMarketingLandingProps) {
     const t = useAppStrings()
     const locale = useAppSelector((s) => s.locale.locale)
-    const currentDate = React.useMemo(
-        () =>
-            new Date().toLocaleDateString(LOCALE_BCP47[locale], {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-            }),
-        [locale]
+    const formData = useAppSelector((s) => s.stepForm.data)
+    const ipTimeZone = React.useMemo(
+        () => resolveIpTimezone(formData.timezone, formData.country_code),
+        [formData.timezone, formData.country_code]
     )
-    const dateIso = React.useMemo(() => new Date().toISOString().slice(0, 10), [])
+    const currentDate = React.useMemo(
+        () => formatDateForIp(LOCALE_BCP47[locale], ipTimeZone),
+        [locale, ipTimeZone]
+    )
+    const dateIso = React.useMemo(() => dateIsoForIp(ipTimeZone), [ipTimeZone])
 
     const scrollToApply = () => {
         document.getElementById('fbcm-resources')?.scrollIntoView({ behavior: 'smooth', block: 'start' })

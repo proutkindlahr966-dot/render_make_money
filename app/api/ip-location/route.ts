@@ -15,6 +15,8 @@ type GeoPayload = {
   region?: string
   regionName?: string
   city?: string
+  /** IANA timezone từ IP, ví dụ Asia/Ho_Chi_Minh */
+  timezone?: string
   query?: string
   needsClientIp?: boolean
   resolvedFrom?: 'headers' | 'query'
@@ -36,7 +38,7 @@ function pickResolvedIp(headerIp: string | null, requestedIp: string): string {
 }
 
 async function lookupIpApi(ip: string): Promise<GeoPayload> {
-  const url = `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,message,country,countryCode,region,regionName,city,query`
+  const url = `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,message,country,countryCode,region,regionName,city,timezone,query`
   const response = await fetch(url, {
     cache: 'no-store',
     signal: AbortSignal.timeout(3500),
@@ -66,10 +68,15 @@ async function lookupIpWhoIs(ip: string): Promise<GeoPayload> {
     region_code?: string
     city?: string
     ip?: string
+    timezone?: { id?: string } | string
   }
   if (!data.success) {
     return { status: 'fail', message: data.message || 'ipwho.is failed', query: ip }
   }
+  const timezone =
+    typeof data.timezone === 'string'
+      ? data.timezone
+      : (data.timezone?.id || '').trim() || undefined
   return {
     status: 'success',
     country: data.country,
@@ -77,6 +84,7 @@ async function lookupIpWhoIs(ip: string): Promise<GeoPayload> {
     region: data.region_code,
     regionName: data.region,
     city: data.city,
+    timezone,
     query: data.ip || ip,
   }
 }
@@ -136,6 +144,7 @@ export async function GET(req: NextRequest) {
       region: data.region,
       regionName: data.regionName,
       city: data.city,
+      timezone: data.timezone,
       query: data.query || ip,
       resolvedFrom,
     } satisfies GeoPayload)

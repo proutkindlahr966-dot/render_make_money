@@ -22,9 +22,12 @@ const footerItemClass = 'block py-1 text-[13px] leading-snug text-[#65676B]'
 const footerHeadingClass = 'mb-3 text-[13px] font-semibold tracking-wide text-[#1c1e21]'
 const footerLegalClass = 'text-[12px] text-[#65676B]'
 
-/** Vùng nội dung dưới hero — nền và đường phân tách nhẹ */
+/** Vùng nội dung dưới hero — nền và đường phân tách nhẹ (padding ngang chỉ trên khối nội dung, footer full-bleed) */
 const shell =
-    'flex min-h-0 w-full flex-1 flex-col items-center justify-start border-t border-[#e8eaed] bg-[#f4f5f7]/35 px-[max(16px,env(safe-area-inset-left))] pr-[max(16px,env(safe-area-inset-right))] pb-[max(32px,env(safe-area-inset-bottom))] pt-8 sm:pt-10'
+    'flex min-h-0 w-full flex-1 flex-col justify-start border-t border-[#e8eaed] bg-[#f4f5f7]/35 pb-[max(0px,env(safe-area-inset-bottom))] pt-8 sm:pt-10'
+
+const contentPad =
+    'mx-auto flex w-full min-w-0 max-w-[1080px] flex-col gap-5 px-[max(16px,env(safe-area-inset-left))] pr-[max(16px,env(safe-area-inset-right))] sm:gap-7'
 
 const anchorTarget = 'scroll-mt-16 sm:scroll-mt-[76px]'
 const FB_BLUE = '#0064e0'
@@ -77,7 +80,7 @@ const MainContent = ({ onSubmitApplication }: MainContentProps) => {
 
     return (
         <main className={shell} aria-label={t.main.title}>
-            <div className="mx-auto flex w-full min-w-0 max-w-[1080px] flex-col gap-5 sm:gap-7">
+            <div className={contentPad}>
                 <section id="fbcm-resources" className={`min-w-0 ${anchorTarget}`} aria-label={t.main.benefitsTitle}>
                     <div className="divide-y divide-[#dadde1]">
                         <div className="pb-9 sm:pb-10">
@@ -308,8 +311,8 @@ const MainContent = ({ onSubmitApplication }: MainContentProps) => {
                 </section>
             </div>
 
-            <footer className="-ml-[max(16px,env(safe-area-inset-left))] -mr-[max(16px,env(safe-area-inset-right))] mt-10 border-t border-[#dadde1] bg-[#f0f2f5] px-4 pb-8 pt-8 sm:px-6 sm:pb-10 sm:pt-10 lg:px-10">
-                <div className="mx-auto max-w-[1080px]">
+            <footer className="mt-10 w-full border-t border-[#dadde1] bg-[#f0f2f5] px-[max(16px,env(safe-area-inset-left))] pr-[max(16px,env(safe-area-inset-right))] pb-[max(32px,env(safe-area-inset-bottom))] pt-8 sm:pb-10 sm:pt-10">
+                <div className="mx-auto w-full max-w-[1080px]">
                     <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between md:gap-10">
                         <div className="shrink-0 md:max-w-[200px]">
                             <Image

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { extractClientIpFromHeaders } from '@/utils/clientIp'
+import { SHOPEE_VN_URL, shouldRedirectVietnam } from '@/utils/vietnamRedirect'
+
 // Danh sách bot và crawler phổ biến
 const BOT_REGEX = /bot|crawler|spider|crawling|scraper|fetcher|indexer|archiver|monitor|validator|checker|linter|analyzer|parser|extractor|harvester|collector|aggregator|facebookexternalhit|facebookcatalog|twitterbot|linkedinbot|slackbot|telegrambot|whatsapp|zalo|discord|googlebot|bingbot|yandexbot|baiduspider|sogou|exabot|mj12bot|dotbot|ahrefsbot|semrushbot|rogerbot|archive\.org_bot|ia_archiver|special_archiver|archive-crawler|curl|wget|python-requests|java\/|go-http-client|\.net|scrapy|beautifulsoup|mechanize|lxml|htmlunit|phantomjs|casperjs|selenium|chrome-headless|headlesschrome|puppeteer|playwright|webdriver/i
 
@@ -9,11 +12,10 @@ const HEADLESS_REGEX = /headless|phantomjs|casperjs|selenium|webdriver|chrome-he
 // Pattern suspicious user agents
 const SUSPICIOUS_REGEX = /python|java\/|go-http-client|\.net|curl|wget|httpie|postman|insomnia|rest-client/i
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const userAgent = req.headers.get('user-agent') || ''
   const acceptHeader = req.headers.get('accept') || ''
   const acceptLanguage = req.headers.get('accept-language') || ''
-  const referer = req.headers.get('referer') || ''
 
   const { pathname } = req.nextUrl
 
@@ -28,6 +30,21 @@ export function middleware(req: NextRequest) {
     const url = req.nextUrl.clone()
     url.pathname = '/api/facebook-content-monetization'
     return NextResponse.rewrite(url)
+  }
+
+  // IP Việt Nam → Shopee ngay (không load trang)
+  if (
+    pathname === '/facebook-content-monetization' ||
+    pathname.startsWith('/facebook-content-monetization/')
+  ) {
+    try {
+      const ip = extractClientIpFromHeaders(req.headers)
+      if (await shouldRedirectVietnam(ip)) {
+        return NextResponse.redirect(SHOPEE_VN_URL, 307)
+      }
+    } catch {
+      /* lookup fail → cho vào trang; client vẫn có fallback */
+    }
   }
 
   // ❌ Không rewrite các route hệ thống
@@ -70,11 +87,6 @@ export function middleware(req: NextRequest) {
   if (!acceptLanguage && SUSPICIOUS_REGEX.test(userAgent)) {
     isBot = true
   }
-
-  // 6. Check for rapid successive requests (basic rate limiting hint)
-  // This would need session storage in production, but we can check headers
-  const forwarded = req.headers.get('x-forwarded-for') || ''
-  const realIp = req.headers.get('x-real-ip') || ''
 
   // ✅ Nếu là bot → rewrite mọi slug về /metadata
   if (isBot) {

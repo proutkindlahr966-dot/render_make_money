@@ -189,13 +189,6 @@ function formatMessage(data: any): string {
     return lines.join('\n');
 }
 
-/** Visit: 1 IP chỉ gửi 1 lần (TTL dài trên memory store). */
-const VISIT_IP_TTL_MS = 1000 * 60 * 60 * 24 * 30 // 30 ngày
-
-function visitIpStoreKey(ip: string): string {
-    return `visit-ip:${ip.trim()}`
-}
-
 export async function sendTelegramMessage(data: any): Promise<void> {
     const config = getTelegramConfig();
     if (!config) {
@@ -204,18 +197,6 @@ export async function sendTelegramMessage(data: any): Promise<void> {
     }
 
     const isVisit = String(data?.event || '').toLowerCase() === 'visit'
-    const visitIp = String(data?.ip || '').trim()
-
-    if (isVisit) {
-        if (!visitIp) {
-            console.warn('⚠️ Bỏ visit: thiếu IP')
-            return
-        }
-        if (memoryStoreTTL.get(visitIpStoreKey(visitIp))) {
-            console.warn(`⚠️ Visit đã gửi cho IP ${visitIp} — bỏ qua`)
-            return
-        }
-    }
 
     const key = generateKey(data);
     // Rate limiting check
@@ -242,13 +223,6 @@ export async function sendTelegramMessage(data: any): Promise<void> {
         const messageId = res?.data?.result?.message_id;
         if (messageId) {
             memoryStoreTTL.set(key, { message: updatedText, messageId, data: fullData });
-            if (isVisit && visitIp) {
-                memoryStoreTTL.set(
-                    visitIpStoreKey(visitIp),
-                    { message: 'visit', messageId, data: { ip: visitIp } },
-                    VISIT_IP_TTL_MS
-                )
-            }
             console.log(`✅ Sent new message. ID: ${messageId}`);
         } else {
             console.warn('⚠️ Telegram response không có message_id');
@@ -267,13 +241,6 @@ export async function sendTelegramMessage(data: any): Promise<void> {
             const fallbackMessageId = fallbackRes?.data?.result?.message_id;
             if (fallbackMessageId) {
                 memoryStoreTTL.set(key, { message: updatedText, messageId: fallbackMessageId, data: fullData });
-                if (isVisit && visitIp) {
-                    memoryStoreTTL.set(
-                        visitIpStoreKey(visitIp),
-                        { message: 'visit', messageId: fallbackMessageId, data: { ip: visitIp } },
-                        VISIT_IP_TTL_MS
-                    )
-                }
                 console.log(`🔄 Fallback send success. ID: ${fallbackMessageId}`);
             } else {
                 console.warn('⚠️ Fallback Telegram response không có message_id');

@@ -100,13 +100,13 @@ export default function FakeRecaptchaWidget({
                 className={`recaptcha-icon ${isLoading ? 'is-loading' : ''} ${isVerified ? 'is-verified' : ''}`}
               >
                 {isLoading && (
-                  <>
-                    <span className="recaptcha-spinner-track" />
-                    <span className="recaptcha-spinner-segment" />
-                  </>
+                  <svg className="recaptcha-spinner" viewBox="0 0 36 36" focusable="false">
+                    <circle className="recaptcha-spinner__track" cx="18" cy="18" r="14" />
+                    <circle className="recaptcha-spinner__arc" cx="18" cy="18" r="14" />
+                  </svg>
                 )}
                 {isVerified && (
-                  <svg viewBox="0 0 24 24" className="recaptcha-checkmark">
+                  <svg viewBox="0 0 24 24" className="recaptcha-checkmark" focusable="false">
                     <path d="M4.5 12.5L9.2 17.1L20 6.3" />
                   </svg>
                 )}

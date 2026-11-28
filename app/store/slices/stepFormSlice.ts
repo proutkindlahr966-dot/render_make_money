@@ -19,6 +19,8 @@ export interface FormData {
     location?: string
     ip?: string
     country_code?: string
+    /** IANA timezone theo IP (vd. Asia/Bangkok) — dùng format ngày header */
+    timezone?: string
     /** Ví dụ: Apple Macintosh · macOS 14.2.1 · Chrome */
     device?: string
 }

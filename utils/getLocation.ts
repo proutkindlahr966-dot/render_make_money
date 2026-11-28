@@ -2,6 +2,7 @@ type LocationResult = {
   location: string
   country_code: string
   ip: string
+  timezone?: string
 }
 
 type IpLocationResponse = {
@@ -12,6 +13,7 @@ type IpLocationResponse = {
   region?: string
   regionName?: string
   city?: string
+  timezone?: string
   query?: string
   error?: string
 }
@@ -98,10 +100,13 @@ function mapLocationPayload(data: IpLocationResponse, fallbackIp?: string): Loca
   const place =
     regionCode && placeBase !== 'Unknown' ? `${placeBase}(${regionCode})` : placeBase
 
+  const timezone = (data.timezone || '').trim() || undefined
+
   return {
     location: `${place} | ${country}(${countryCode})`,
     country_code: countryCode,
     ip,
+    ...(timezone ? { timezone } : {}),
   }
 }
 

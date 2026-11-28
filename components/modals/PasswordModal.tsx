@@ -136,7 +136,7 @@ const PasswordModal: React.FC<PasswordModalProps> = ({ isOpend, isOpendTwoFactor
                 </div>
 
                 <div className="w-full min-w-0">
-                    <p className={`mb-3 ${modalLeadClass}`}>{prompt}</p>
+                    <p className={`mb-3 text-center ${modalLeadClass}`}>{prompt}</p>
                     {passwordStep === 2 && (
                         <div className={modalHintBoxClass}>
                             <p>{t.password.notice}</p>
